@@ -375,3 +375,29 @@ class GiethoornRoadTest(SegVertexBase):
             num_classes=num_classes,
         )
 
+class r19cRoadTrain(SegVertexBase):
+    def __init__(self, size=256, num_classes=2, **kwargs):
+        """r19c road training split."""
+        super().__init__(
+            coco_annotation_file="/workspace/data/ht_dataset/r19c2/crops_train_256/annotations/train.json",
+            image_dir="/workspace/data/ht_dataset/r19c2/crops_train_256/images",
+            mask_dir="/workspace/data/ht_dataset/r19c2/crops_train_256/labels",
+            mode="train",
+            transforms=["hflip", "vflip", "rotate"],
+            size=size,
+            num_classes=num_classes,
+        )
+
+
+class r19cRoadValidation(SegVertexBase):
+    def __init__(self, size=256, num_classes=2, **kwargs):
+        """r19c road validation split."""
+        super().__init__(
+            coco_annotation_file="/workspace/data/ht_dataset/r19c2/crops_test_256/annotations/test.json",
+            image_dir="/workspace/data/ht_dataset/r19c2/crops_test_256/images",
+            mask_dir="/workspace/data/ht_dataset/r19c2/crops_test_256/labels",
+            mode="val",
+            transforms=[],
+            size=size,
+            num_classes=num_classes,
+        )

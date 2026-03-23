@@ -1,0 +1,31 @@
+# 图像处理与数据格式
+pillow==9.5.0
+h5py==3.9.0
+nibabel==5.0.0
+matplotlib==3.7.5
+albumentations==0.4.3
+opencv-python==4.1.2.30
+imageio==2.9.0
+imageio-ffmpeg==0.4.2
+
+# 深度学习框架与工具
+pytorch-lightning==1.4.0
+omegaconf==2.1.1
+test-tube>=0.7.5
+einops==0.3.0
+transformers==4.19.2
+torchmetrics==0.7.0
+kornia==0.6
+# pycocotools==2.0.6
+
+# Diffusion 相关
+diffusers==0.12.1
+taming-transformers-rom1504
+
+# CLIP
+# git+https://github.com/openai/CLIP.git@main#egg=clip
+
+# 其他工具
+pudb==2019.2
+invisible-watermark
+streamlit>=0.73.1

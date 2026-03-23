@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Black">
+    <option name="sdkName" value="Python 3.13" />
+  </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote ldpoly (sftp://ubuntu@172.39.60.11:56022null)" project-jdk-type="Python SDK" />
+</project>
