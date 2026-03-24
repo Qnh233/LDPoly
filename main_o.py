@@ -303,7 +303,7 @@ class SetupCallback(Callback):
             # ckpt_path = os.path.join(self.ckptdir, "last.ckpt")
             # trainer.save_checkpoint(ckpt_path)
 
-    def on_fit_start(self, trainer, pl_module):
+    def on_pretrain_routine_start(self, trainer, pl_module):
         if trainer.global_rank == 0:
             # Create logdirs and save configs
             os.makedirs(self.logdir, exist_ok=True)
@@ -364,14 +364,14 @@ class ImageLogger(Callback):
         self.log_dice_frequency = log_dice_frequency
 
         self.logger_log_images = {
-            pl.loggers.TensorBoardLogger: self._tensorboard,
+            pl.loggers.TestTubeLogger: self._testtube,
         }
 
         # log_steps 控制训练初期的频繁可视化
         self.log_steps = [2 ** n for n in range(int(np.log2(self.batch_freq)) + 1)] if increase_log_steps else [self.batch_freq]
 
     @rank_zero_only
-    def _tensorboard(self, pl_module, images, batch_idx, split):
+    def _testtube(self, pl_module, images, batch_idx, split):
         for k in images:
             grid = torchvision.utils.make_grid(images[k])
             grid = (grid + 1.0) / 2.0  # 将 [-1,1] 缩放到 [0,1]
@@ -465,7 +465,7 @@ class ImageLogger(Callback):
             return True
         return False
 
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
         if not self.disabled and (pl_module.global_step > 0 or self.log_first_step):
             self.log_img(pl_module, batch, batch_idx, split="train")
 
@@ -483,31 +483,23 @@ class CUDACallback(Callback):
     # see https://github.com/SeanNaren/minGPT/blob/master/mingpt/callback.py
     def on_train_epoch_start(self, trainer, pl_module):
         # Reset the memory use counter
-        device = trainer.strategy.root_device
-        if device.type != "cuda":
-            self.start_time = time.time()
-            return
-
-        idx = device.index if device.index is not None else torch.cuda.current_device()
-        torch.cuda.reset_peak_memory_stats(idx)
-        torch.cuda.synchronize(idx)
+        torch.cuda.reset_peak_memory_stats(trainer.root_gpu)
+        torch.cuda.synchronize(trainer.root_gpu)
         self.start_time = time.time()
 
-    def on_train_epoch_end(self, trainer, pl_module):
-        device = trainer.strategy.root_device
+    def on_train_epoch_end(self, trainer, pl_module, outputs):
+        torch.cuda.synchronize(trainer.root_gpu)
+        max_memory = torch.cuda.max_memory_allocated(trainer.root_gpu) / 2 ** 20
         epoch_time = time.time() - self.start_time
 
-        if device.type != "cuda":
-            rank_zero_info(f"Epoch time: {epoch_time:.2f} seconds")
-            return
+        try:
+            max_memory = trainer.training_type_plugin.reduce(max_memory)
+            epoch_time = trainer.training_type_plugin.reduce(epoch_time)
 
-        idx = device.index if device.index is not None else torch.cuda.current_device()
-        torch.cuda.synchronize(idx)
-        max_memory = torch.cuda.max_memory_allocated(idx) / (1024 ** 2)
-
-        # 如需跨卡平均，可后续再加 strategy.reduce；先保证与 PL 1.9 API 兼容
-        rank_zero_info(f"Epoch time: {epoch_time:.2f} seconds")
-        rank_zero_info(f"Peak memory: {max_memory:.2f} MiB")
+            rank_zero_info(f"Average Epoch time: {epoch_time:.2f} seconds")
+            rank_zero_info(f"Average Peak memory {max_memory:.2f}MiB")
+        except AttributeError:
+            pass
 
 
 # -------------------------------------------------------------------------
@@ -576,17 +568,12 @@ if __name__ == "__main__":
     lightning_config = config.pop("lightning", OmegaConf.create())
 
     # Update num_classes in datasets
-    for split in ["train", "validation"]:
+    for split in ["train", "validation", "test"]:
         config.data.params[split].params.update({"num_classes": config.model.params.num_classes})
 
     # Prepare trainer configuration
     trainer_config = lightning_config.get("trainer", OmegaConf.create())
-    # PL 1.9+: accelerator is device type, ddp belongs to strategy
-    if "gpus" in trainer_config:
-        trainer_config.setdefault("accelerator", "cuda")
-        g = str(trainer_config.get("gpus", ""))
-        if "," in g:
-            trainer_config.setdefault("strategy", "ddp")
+    trainer_config["accelerator"] = "gpu"
     for k in nondefault_trainer_args(opt):
         trainer_config[k] = getattr(opt, k)
     trainer_opt = argparse.Namespace(**trainer_config)
@@ -600,9 +587,9 @@ if __name__ == "__main__":
     # Configure the PyTorch Lightning logger.
     # The default logger is TestTubeLogger, unless overridden in `config.yaml`.
     logger_cfg = OmegaConf.merge({
-        "target": "pytorch_lightning.loggers.TensorBoardLogger",
+        "target": "pytorch_lightning.loggers.TestTubeLogger",
         "params": {
-            "name": "tensorboard",
+            "name": "testtube",
             "save_dir": logdir
         }
     }, lightning_config.get("logger", OmegaConf.create()))  # 从 config 中提取 logger 配置（可选）

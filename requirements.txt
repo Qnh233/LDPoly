@@ -1,20 +1,20 @@
 # 图像处理与数据格式
 pillow==9.5.0
+opencv-python==4.10.0.84
 h5py==3.9.0
 nibabel==5.0.0
 matplotlib==3.7.5
-albumentations==0.4.3
-opencv-python==4.1.2.30
+albumentations==1.4.8
 imageio==2.9.0
 imageio-ffmpeg==0.4.2
 
 # 深度学习框架与工具
-pytorch-lightning==1.4.0
+# pytorch-lightning==1.4.0
 omegaconf==2.1.1
 test-tube>=0.7.5
 einops==0.3.0
 transformers==4.19.2
-torchmetrics==0.7.0
+torchmetrics==0.11.4
 kornia==0.6
 # pycocotools==2.0.6
 
@@ -27,5 +27,5 @@ taming-transformers-rom1504
 
 # 其他工具
 pudb==2019.2
-invisible-watermark
+# invisible-watermark
 streamlit>=0.73.1

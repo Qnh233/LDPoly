@@ -83,7 +83,7 @@ def load_model(config_path, checkpoint_path, device):
     # pl_sd = torch.load(checkpoint_path, map_location="cpu")
     # model.load_state_dict(pl_sd["state_dict"], strict=False)
 
-    ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    ckpt = torch.load(checkpoint_path, map_location="cpu")
 
     if isinstance(ckpt, dict) and "state_dict" in ckpt:
         # Lightning-style checkpoint: {'state_dict': ..., 'epoch': ..., ...}

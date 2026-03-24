@@ -180,7 +180,12 @@ class SegVertexBase(Dataset):
         # Convert mask → np array
         # -------------------------
         if mask is not None:
-            mask = (np.array(mask) > 128).astype(np.float32)
+            mask_np = np.array(mask)
+            if mask_np.max() <= 1:
+                mask = (mask_np > 0).astype(np.float32)
+            else:
+                mask = (mask_np > 128).astype(np.float32)
+            # mask = (np.array(mask) > 128).astype(np.float32)
         else:
             # For annotation-free test: keep mask as None or all zeros
             mask = np.zeros((height, width, 3), dtype=np.float32)
