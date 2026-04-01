@@ -206,7 +206,7 @@ class ExtendedLatentDiffusion(LatentDiffusion):
             print("\033[31m[Info]: No ground-truth vertices available; Precision/Recall not computed.\033[0m")
 
     @torch.no_grad()
-    def log_images(self, batch, N=8, n_row=4,
+    def log_images(self, batch, N=64, n_row=4,
                    sampler="ddpm", ddim_steps=20, ddim_eta=1.0,
                    plot_denoise_rows=False, plot_diffusion_rows=False, return_first_stage_outputs=False,
                    plot_conditioning_latent=False,

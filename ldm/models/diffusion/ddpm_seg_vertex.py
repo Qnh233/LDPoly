@@ -516,9 +516,42 @@ class DDPM(pl.LightningModule):
         with self.ema_scope():
             _, loss_dict_ema = self.shared_step(batch)
             loss_dict_ema = {key + '_ema': loss_dict_ema[key] for key in loss_dict_ema}
-        self.log_dict(loss_dict_no_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True)
-        self.log_dict(loss_dict_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True)
+        self.log_dict(loss_dict_no_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+        self.log_dict(loss_dict_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True, sync_dist=True)
 
+    # @torch.no_grad()
+    # def on_validation_epoch_end(self):
+    #     # 跳过 sanity check
+    #     if self.trainer.sanity_checking:
+    #         return
+    #
+    #     # 控制开销：例如每 5 个 epoch 计算一次重型采样指标
+    #     every_n = 5
+    #     if (self.current_epoch + 1) % every_n != 0:
+    #         return
+    #
+    #     # 只在 rank0 做重型评估，避免 DDP 重复算
+    #     if not self.trainer.is_global_zero:
+    #         return
+    #
+    #     metrics_dict, _ = self.log_dice(ddim_steps=20)
+    #
+    #     # 统一写成标量日志
+    #     for k, v in metrics_dict.items():
+    #         if isinstance(v, (list, tuple, np.ndarray)):
+    #             val = float(np.mean(v))
+    #         else:
+    #             val = float(v)
+    #         self.log(
+    #             k,
+    #             val,
+    #             prog_bar=(k == "val_avg_dice"),
+    #             logger=True,
+    #             on_step=False,
+    #             on_epoch=True,
+    #             sync_dist=False,
+    #             rank_zero_only=True,
+    #         )
     def on_train_batch_end(self, *args, **kwargs):
         if self.use_ema:
             self.model_ema(self.model)
@@ -708,7 +741,7 @@ class LatentDiffusion(DDPM):
                     self.register_buffer(f'scale_factor_{key}', 1. / z.flatten().std())
                     print(f"setting scale_factor of {key} to {1. / z.flatten().std()}")
                     # shanghai building mask: 0.1271989494562149, shanghai vertex heatmap: 0.11964151263237
-                del self.scale_factor
+                # del self.scale_factor
             print(f"### USING STD-RESCALING: \033[31m{self.scale_by_std}\033[0m ###")
             self.log("val_avg_dice", 0, prog_bar=False, logger=True, on_step=True, on_epoch=False)
 
@@ -1757,7 +1790,14 @@ class LatentDiffusion(DDPM):
     def log_dice(self, data=None, save_dir=None, ddim_steps=50):
         
         if data is None: # if dataset is not None, means the call comes from inference script.
-            dataset = self.trainer.datamodule.datasets["test"]
+            # dataset = self.trainer.datamodule.datasets["test"]
+            datasets = self.trainer.datamodule.datasets
+            if "validation" in datasets:
+                dataset = datasets["validation"]
+            elif "test" in datasets:
+                dataset = datasets["test"]
+            else:
+                raise ValueError("No `validation` or `test` dataset found in datamodule.")
             data = DataLoader(dataset, batch_size=1, shuffle=False, pin_memory=True)
 
         # self.model.eval()     # ImageLogger will handle this
@@ -1779,6 +1819,7 @@ class LatentDiffusion(DDPM):
                 label_latent_list, samples_latent_list, cond_latent_list = list(), list(), list()
                 label_image_list, samples_image_list = list(), list()
                 samples_logits_list, samples_cond_list = list(), list()
+                seg_label_pair = {}  # 新增，避免 NameError
                 pbar = tqdm(data, desc="Validating Segmentation")   # volume-wise
 
                 # count = 0.
@@ -1858,7 +1899,7 @@ class LatentDiffusion(DDPM):
                         # out_p = out.softmax(dim=2)
                         # out = out_p.argmax(dim=2, keepdim=True).repeat(1, 1, 3).numpy()    # h w c==3
                     else:
-                        x_samples_ddim = self.decode_first_stage(samples_pred_seg[0])
+                        x_samples_ddim = self.decode_first_stage(samples_pred_seg[0],ztype="segmentation")
                         x_samples_ddim = torch.clamp(
                             (x_samples_ddim + 1.0) / 2.0 , min=0.0, max=1.0
                         )
@@ -1868,7 +1909,7 @@ class LatentDiffusion(DDPM):
                         out_x_p = rearrange(x_samples_ddim.squeeze(0).cpu().numpy(), 'c h w -> h w c')
                         out_x = (out_x_p > 0.5)
 
-                        h_samples_ddim = self.decode_first_stage(samples_pred_heat[0])
+                        h_samples_ddim = self.decode_first_stage(samples_pred_heat[0],ztype="heatmap")
                         h_samples_ddim = torch.clamp(
                             (h_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0
                         )

@@ -205,6 +205,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="ubuntu@100.200.195.2:55001 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
     </serverData>
     <option name="myAutoUpload" value="ALWAYS" />
   </component>

@@ -29,10 +29,11 @@ from pytorch_lightning.utilities import rank_zero_only, rank_zero_info
 from omegaconf import OmegaConf
 from torch.utils.data import Dataset, DataLoader
 from functools import partial
-
+from ldm.models.diffusion.ddpm_seg_vertex import LatentDiffusion
 from ldm.data.base import Txt2ImgIterableBaseDataset
 from ldm.util import instantiate_from_config
-
+import torch.serialization as ts
+ts.add_safe_globals([instantiate_from_config,LatentDiffusion,np.core.multiarray.scalar,np.dtype])
 # -------------------------------------------------------------------------
 # Argument parsing
 # -------------------------------------------------------------------------
@@ -724,7 +725,8 @@ if __name__ == "__main__":
         if opt.train:
             trainer.fit(model, data)
         if not opt.no_test and not trainer.interrupted:
-            trainer.test(model, data)
+            trainer.validate(model, data)
+            # trainer.test(model, data)
     except Exception:
         if opt.debug and trainer.global_rank == 0:
             try:
