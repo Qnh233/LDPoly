@@ -45,10 +45,10 @@ model:
       target: ldm.lr_scheduler.LambdaLinearScheduler
       params:
         warm_up_steps: [10000]
-        cycle_lengths: [10000000000000]
+        cycle_lengths: [250000]
         f_start: [1.e-6]
-        f_max: [1.]
-        f_min: [ 1.]
+        f_max: [0.6]
+        f_min: [0.1]
 
     unet_config:
       target: ldm.modules.diffusionmodules.openaimodel_PreConvConat_ChannelEmbed.UNetModel
@@ -111,7 +111,7 @@ model:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 16
+    batch_size: 8
     num_workers: 8
     wrap: False
     train:
@@ -128,14 +128,18 @@ lightning:
     image_logger:
       target: main.ImageLogger
       params:
-        batch_frequency: 10000 # 2000
-        max_images: 8
-        increase_log_steps: True
-        log_dice_frequency: 1000000
+        batch_frequency: 2000 # 2000
+        max_images: 4
+        increase_log_steps: False
+        log_dice_frequency: 5000
+        log_images_kwargs:
+          plot_progressive_rows: False
+          plot_diffusion_rows: False
 
   trainer:
+    max_epochs: 200
     accelerator: cuda
     benchmark: True
-    check_val_every_n_epoch: 50  # val is test now
+    check_val_every_n_epoch: 5  # val is test now
     accumulate_grad_batches: 1
     strategy: ddp_find_unused_parameters_false
